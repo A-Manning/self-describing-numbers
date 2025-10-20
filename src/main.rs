@@ -109,7 +109,7 @@ impl Solution {
         let n_free_vars = rep_descriptors.len() - n_unique_descriptors;
         let mut slots_to_vars = BTreeMap::<u8, BTreeSet<u8>>::new();
         if n_free_vars != 0 {
-            let possible_free_vars: BTreeSet<u8> = (0..9)
+            let possible_free_vars: BTreeSet<u8> = (0..=9)
                 .filter(|d| !unique_descriptor_counts.contains_key(d))
                 .collect();
             slots_to_vars.insert(0, possible_free_vars);
@@ -120,8 +120,19 @@ impl Solution {
         let mut res = Self {
             best_solution: Vec::with_capacity(rep_descriptors.len()),
             vars: {
+                let slots_to_unique_rep_descriptor_counts: HashMap<u8, usize> =
+                    slots_to_rep_descriptors
+                        .iter()
+                        .map(|(slot, rds)| {
+                            let mut rds = rds.clone();
+                            rds.dedup();
+                            (*slot, rds.len())
+                        })
+                        .collect();
                 let mut vars = slots_to_vars.clone();
-                vars.retain(|_, vs| vs.len() > 1);
+                vars.retain(|slot, _vs| {
+                    slots_to_unique_rep_descriptor_counts[slot] > 1
+                });
                 vars
             },
         };
@@ -131,13 +142,11 @@ impl Solution {
                 let diff = descriptor - rep;
                 let (described, best_digit) = match slots_to_vars.entry(diff) {
                     btree_map::Entry::Occupied(mut digit_set) => {
+                        let best_digit =
+                            digit_set.get_mut().pop_last().unwrap();
                         if !res.vars.contains_key(&diff) {
-                            let mut digit_set = digit_set.remove();
-                            let digit = digit_set.pop_last().unwrap();
-                            (Described::Digit(digit), digit)
+                            (Described::Digit(best_digit), best_digit)
                         } else {
-                            let best_digit =
-                                digit_set.get_mut().pop_last().unwrap();
                             (Described::Var(diff), best_digit)
                         }
                     }
